@@ -6,90 +6,62 @@ Competición de [DrivenData](https://www.drivendata.org/competitions/7/pump-it-u
 Práctica final del módulo de Machine Learning del Máster en Data Science
 y Business Analytics.
 
+---
+
 ## El problema
 
-Predecir si una bomba está `functional`, `functional needs repair` o
-`non functional` a partir de 39 variables: ubicación, tipo de extracción,
-gestión, financiación y calidad del agua.
+El gobierno de Tanzania mantiene decenas de miles de puntos de agua, y muchos
+están averiados. Enviar cuadrillas a revisarlos uno por uno es caro y lento.
+Si se pudiera predecir cuáles están fallando a partir de los datos que ya
+existen, el mantenimiento se podría priorizar.
+
+La tarea es clasificar cada bomba en una de tres categorías:
+
+- `functional` — funciona
+- `functional needs repair` — funciona pero necesita reparación
+- `non functional` — no funciona
+
+A partir de 39 variables: ubicación, tipo de extracción, quién la gestiona,
+quién la financió, calidad y cantidad de agua, año de construcción.
 
 - 59.400 bombas de entrenamiento, 14.850 de test
-- Clases desbalanceadas: `functional needs repair` es menos del 8% del total
-- Métrica de evaluación: accuracy
+- La métrica de evaluación es accuracy
 
-## Qué hay en el repo
+---
 
-| Archivo | Contenido |
-|---|---|
-| `pump_it_up_final.ipynb` | Notebook completo: EDA, limpieza, modelado y conclusiones |
-| `training_values.csv` | Características de las 59.400 bombas de entrenamiento |
-| `training_labels.csv` | Estado real de esas bombas |
-| `test_value.csv` | Las 14.850 bombas a predecir |
+## Los tres problemas reales de estos datos
 
-El CSV de predicciones (`entrega_final.csv`) no está incluido: se genera al
-ejecutar el notebook y es el archivo que se sube a DrivenData.
+El dataset parece limpio a primera vista. No lo está.
 
-## Enfoque
+### 1. Miles de ceros que en realidad son datos faltantes
 
-**Ceros que en realidad son faltantes.** Un tercio de las bombas tenía
-`construction_year = 0` y `population = 0`. Se convierten a `NaN` antes de
-imputar, con banderas que registran dónde faltaba el dato.
+`df.info()` no reporta valores nulos en las columnas numéricas. Pero un tercio
+de las bombas tiene `construction_year = 0` y `population = 0`. Ninguna bomba
+se construyó en el año 0, y una bomba que no sirve a nadie es un registro
+sospechoso.
 
-**Imputación por zona en tres niveles.** Mediana de su región+distrito, luego
-de su región, y global como último recurso. Rellenar con la mediana global
-metería el mismo valor en zonas geográficamente muy distintas.
+Lo mismo con `longitude = 0` y `gps_height = 0`: Tanzania está entre los 29 y
+41 grados de longitud, y su altitud no es cero.
 
-**Frequency encoding en variables de alta cardinalidad.** `funder` e
-`installer` tienen ~1.900 categorías cada una. Se sustituye cada categoría
-por su número de apariciones: ~1.900 categorías pasan a una columna numérica
-sin inventar un orden falso ni usar la variable objetivo.
+Si se dejan como ceros, el modelo los trata como valores reales y aprende un
+patrón falso: que hay un grupo de bombas construidas en el año 0.
 
-**Split antes de la limpieza.** Todas las medianas, modas y frecuencias se
-calculan sobre el train y se aplican al resto, para que las filas de
-validación no contribuyan a los valores con los que se rellenan a sí mismas.
+`latitude` tiene un matiz añadido — el valor centinela no es `0` sino
+`-2e-08`, así que buscarlo con `== 0` no lo encuentra.
 
-## Modelos comparados
+### 2. Variables categóricas con casi 2.000 valores distintos
 
-Random Forest (baseline y ajustado), LightGBM, CatBoost, XGBoost, y Random
-Forest con oversampling SMOTE. Búsqueda de hiperparámetros con
-`RandomizedSearchCV`.
+`funder` (quién financió la bomba) e `installer` (quién la instaló) tienen
+alrededor de 1.900 categorías cada una. Con One-Hot Encoding generarían miles
+de columnas casi vacías, y el modelo se ahogaría en dimensionalidad.
 
-Todos los resultados se generan automáticamente en la tabla comparativa del
-notebook.
+### 3. Clases desbalanceadas
 
-| Métrica | Valor |
-|---|---|
-| Modelo final | Random Forest |
-| Accuracy en validación | _(rellenar)_ |
-| Score en el leaderboard | _(rellenar)_ |
+`functional needs repair` es menos del 8% del total. Un modelo que ignore por
+completo esa clase puede tener buen accuracy global, y eso es exactamente lo
+que tiende a pasar. Pero es la clase operativamente más interesante: son las
+bombas que se pueden salvar interviniendo a tiempo.
 
-## Conclusiones
+---
 
-**La representación de los datos importó más que el algoritmo.** El frequency
-encoding fue el único cambio que movió el accuracy de forma clara. Ninguno de
-los tres modelos de boosting superó al Random Forest, y la búsqueda automática
-de hiperparámetros aportó muy poco.
-
-**Refinar la imputación apenas cambió nada.** Random Forest es robusto a cómo
-se rellenen los huecos: al partir por umbrales, un valor imputado razonable
-cae del mismo lado del corte que el real la mayoría de las veces.
-
-**El modelo se apoya sobre todo en la geografía.** `longitude`, `latitude` y
-`gps_height` ocupan tres de los cuatro primeros puestos por importancia, junto
-a `quantity_dry`. Es la línea con más margen de mejora: variables como la
-distancia a la ciudad más cercana o clusters de coordenadas.
-
-**La clase minoritaria es el límite del modelo.** El recall en
-`functional needs repair` es bajo y no se arregla con más árboles. SMOTE lo
-mejora a costa del accuracy global: son objetivos distintos. Para esta
-competición se prioriza accuracy porque es la métrica evaluada, pero en
-planificación real de mantenimiento la decisión sería la contraria.
-
-## Cómo ejecutarlo
-
-```bash
-pip install pandas numpy scikit-learn matplotlib seaborn scipy
-pip install lightgbm catboost xgboost imbalanced-learn
-```
-## Stack
-
-Python · pandas · scikit-learn · XGBoost · LightGBM · CatBoost · imbalanced-learn
+## Cómo los resolví
