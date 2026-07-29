@@ -20,11 +20,13 @@ gestión, financiación y calidad del agua.
 
 | Archivo | Contenido |
 |---|---|
-| `pump_it_up.ipynb` | Notebook completo: EDA, limpieza, modelado y conclusiones |
-| `entrega_final.csv` | Predicciones sobre el conjunto de test |
+| `pump_it_up_final.ipynb` | Notebook completo: EDA, limpieza, modelado y conclusiones |
+| `training_values.csv` | Características de las 59.400 bombas de entrenamiento |
+| `training_labels.csv` | Estado real de esas bombas |
+| `test_value.csv` | Las 14.850 bombas a predecir |
 
-Los CSV de datos no están incluidos. Se descargan desde DrivenData
-(requiere registro) y van en la misma carpeta que el notebook.
+El CSV de predicciones (`entrega_final.csv`) no está incluido: se genera al
+ejecutar el notebook y es el archivo que se sube a DrivenData.
 
 ## Enfoque
 
@@ -71,6 +73,11 @@ de hiperparámetros aportó muy poco.
 se rellenen los huecos: al partir por umbrales, un valor imputado razonable
 cae del mismo lado del corte que el real la mayoría de las veces.
 
+**El modelo se apoya sobre todo en la geografía.** `longitude`, `latitude` y
+`gps_height` ocupan tres de los cuatro primeros puestos por importancia, junto
+a `quantity_dry`. Es la línea con más margen de mejora: variables como la
+distancia a la ciudad más cercana o clusters de coordenadas.
+
 **La clase minoritaria es el límite del modelo.** El recall en
 `functional needs repair` es bajo y no se arregla con más árboles. SMOTE lo
 mejora a costa del accuracy global: son objetivos distintos. Para esta
@@ -83,10 +90,6 @@ planificación real de mantenimiento la decisión sería la contraria.
 pip install pandas numpy scikit-learn matplotlib seaborn scipy
 pip install lightgbm catboost xgboost imbalanced-learn
 ```
-
-Descarga los tres CSV de DrivenData, ponlos junto al notebook y ejecuta
-`Kernel → Restart & Run All`.
-
 ## Stack
 
 Python · pandas · scikit-learn · XGBoost · LightGBM · CatBoost · imbalanced-learn
